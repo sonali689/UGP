@@ -1,0 +1,29 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:           D_LOG_USDINR   R-squared:                       0.222
+Model:                            OLS   Adj. R-squared:                  0.209
+Method:                 Least Squares   F-statistic:                     16.02
+Date:                Tue, 18 Aug 2026   Prob (F-statistic):           5.66e-14
+Time:                        15:50:03   Log-Likelihood:                 862.55
+No. Observations:                 302   AIC:                            -1713.
+Df Residuals:                     296   BIC:                            -1691.
+Df Model:                           5                                         
+Covariance Type:                  HC1                                         
+==================================================================================
+                     coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------
+const              0.0046      0.001      4.982      0.000       0.003       0.006
+D_LOG_RESERVES    -0.2604      0.035     -7.357      0.000      -0.330      -0.191
+D_LOG_OIL         -0.0180      0.009     -2.070      0.038      -0.035      -0.001
+D_LOG_EPU          0.0070      0.002      3.640      0.000       0.003       0.011
+D_CPI              0.0010      0.001      0.914      0.361      -0.001       0.003
+D_INT_DIFF      5.901e-05      0.003      0.021      0.984      -0.006       0.006
+==============================================================================
+Omnibus:                       20.702   Durbin-Watson:                   1.693
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):               50.295
+Skew:                           0.281   Prob(JB):                     1.20e-11
+Kurtosis:                       4.918   Cond. No.                         43.7
+==============================================================================
+
+Notes:
+[1] Standard Errors are heteroscedasticity robust (HC1)

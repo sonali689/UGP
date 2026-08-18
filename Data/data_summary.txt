@@ -1,0 +1,44 @@
+UGP DATA SUMMARY
+============================================================
+
+Total date range: 1954-07 to 2026-08
+Total rows: 866
+Total columns: 30
+
+Sample A (without IIP):
+  2001-04 to 2026-06 (303 obs)
+
+Sample B (with IIP):
+  2006-04 to 2026-06 (243 obs)
+
+Columns:
+  NEER
+  USDINR
+  USDINR_MONTHLY_VOL
+  OIL_BRENT
+  CPI_YOY
+  EPU
+  FX_RESERVES
+  REPO_RATE
+  FED_RATE
+  IIP_YOY
+  REER_BIS
+  REER_RBI
+  REER_CPI
+  LOG_NEER
+  LOG_USDINR
+  LOG_OIL
+  LOG_RESERVES
+  LOG_EPU
+  D_LOG_NEER
+  D_LOG_USDINR
+  D_LOG_OIL
+  D_LOG_RESERVES
+  D_LOG_EPU
+  DELTA_RESERVES
+  INT_DIFF
+  D_INT_DIFF
+  D_CPI
+  OIL_SHOCK
+  OIL_MAX_12
+  NOPI

@@ -1,0 +1,11 @@
+Variable,Column,ADF_Level_pvalue,KPSS_Level_pvalue,ADF_Diff_pvalue,Integration_Order
+Log(NEER),LOG_NEER,0.8846,0.0100,0.0000,I(1)
+Log(USD/INR),LOG_USDINR,0.9757,0.0100,0.0000,I(1)
+Log(Oil Price),LOG_OIL,0.0503,0.0100,0.0000,I(1)
+CPI Inflation (%),CPI_YOY,0.5718,0.0491,0.0000,I(1)
+Log(EPU),LOG_EPU,0.3568,0.1000,0.0000,I(1)
+Log(FX Reserves),LOG_RESERVES,0.0028,0.0100,0.0000,I(1)
+Repo Rate,REPO_RATE,0.0468,0.0100,0.0000,I(1)
+Fed Funds Rate,FED_RATE,0.0984,0.0882,0.0000,I(1)
+Interest Differential,INT_DIFF,0.4686,0.0100,0.0000,I(1)
+IIP Growth (%),IIP_YOY,0.0002,0.1000,0.0000,I(0)

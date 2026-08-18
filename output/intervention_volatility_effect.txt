@@ -1,0 +1,30 @@
+                            OLS Regression Results                            
+==============================================================================
+Dep. Variable:          ER_VOLATILITY   R-squared:                       0.308
+Model:                            OLS   Adj. R-squared:                  0.298
+Method:                 Least Squares   F-statistic:                     27.19
+Date:                Tue, 18 Aug 2026   Prob (F-statistic):           2.99e-19
+Time:                        15:50:03   Log-Likelihood:                -633.98
+No. Observations:                 303   AIC:                             1278.
+Df Residuals:                     298   BIC:                             1297.
+Df Model:                           4                                         
+Covariance Type:                  HC1                                         
+==================================================================================
+                     coef    std err          z      P>|z|      [0.025      0.975]
+----------------------------------------------------------------------------------
+const             -4.3966      0.983     -4.474      0.000      -6.323      -2.470
+ABS_D_RESERVES    -5.1965      7.589     -0.685      0.493     -20.070       9.677
+OIL_VOLATILITY     0.0015      0.001      1.026      0.305      -0.001       0.004
+LOG_EPU            1.0725      0.217      4.953      0.000       0.648       1.497
+INT_DIFF           0.4876      0.051      9.574      0.000       0.388       0.587
+==============================================================================
+Omnibus:                       30.604   Durbin-Watson:                   0.164
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):               36.817
+Skew:                           0.803   Prob(JB):                     1.01e-08
+Kurtosis:                       3.579   Cond. No.                     9.00e+03
+==============================================================================
+
+Notes:
+[1] Standard Errors are heteroscedasticity robust (HC1)
+[2] The condition number is large,  9e+03. This might indicate that there are
+strong multicollinearity or other numerical problems.

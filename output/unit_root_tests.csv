@@ -1,0 +1,18 @@
+Variable,ADF_stat,ADF_pvalue,ADF_lags,ADF_1%,ADF_5%,ADF_10%,ADF_result,KPSS_stat,KPSS_pvalue,KPSS_1%,KPSS_5%,KPSS_10%,KPSS_result,Type
+Log(NEER),-0.5369,0.8846,1,-3.4523,-2.8712,-2.5719,Non-stationary,2.7671,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+Log(USD/INR),0.2657,0.9757,1,-3.4523,-2.8712,-2.5719,Non-stationary,2.6671,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+Log(Oil Price),-2.8595,0.0503,6,-3.4526,-2.8714,-2.5720,Non-stationary,0.7633,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+CPI Inflation (%),-1.4217,0.5718,12,-3.4531,-2.8716,-2.5721,Non-stationary,0.4670,0.0491,0.7390,0.4630,0.3470,Non-stationary,Level
+Log(EPU),-1.8483,0.3568,7,-3.4527,-2.8714,-2.5720,Non-stationary,0.3054,0.1000,0.7390,0.4630,0.3470,Stationary,Level
+Log(FX Reserves),-3.8095,0.0028,3,-3.4524,-2.8713,-2.5719,Stationary,2.4298,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+Repo Rate,-2.8880,0.0468,3,-3.4524,-2.8713,-2.5719,Stationary,0.8782,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+Fed Funds Rate,-2.5746,0.0984,7,-3.4527,-2.8714,-2.5720,Non-stationary,0.3743,0.0882,0.7390,0.4630,0.3470,Stationary,Level
+Interest Differential,-1.6279,0.4686,4,-3.4525,-2.8713,-2.5720,Non-stationary,0.7592,0.0100,0.7390,0.4630,0.3470,Non-stationary,Level
+IIP Growth (%),-4.4633,0.0002,12,-3.4591,-2.8742,-2.5735,Stationary,0.1953,0.1000,0.7390,0.4630,0.3470,Stationary,Level
+ΔLog(NEER),-14.0967,0.0000,0,-3.4522,-2.8712,-2.5719,Stationary,0.0583,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
+ΔLog(USD/INR),-5.0941,0.0000,16,-3.4534,-2.8717,-2.5722,Stationary,0.2281,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
+ΔLog(Oil),-7.8643,0.0000,5,-3.4526,-2.8713,-2.5720,Stationary,0.0764,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
+ΔCPI,-7.9027,0.0000,11,-3.4530,-2.8715,-2.5721,Stationary,0.0942,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
+ΔLog(EPU),-10.0025,0.0000,6,-3.4526,-2.8714,-2.5720,Stationary,0.0775,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
+ΔLog(Reserves),-6.4065,0.0000,2,-3.4523,-2.8712,-2.5719,Stationary,0.8539,0.0100,0.7390,0.4630,0.3470,Non-stationary,First Difference
+ΔInterest Diff,-5.7492,0.0000,3,-3.4525,-2.8713,-2.5720,Stationary,0.1746,0.1000,0.7390,0.4630,0.3470,Stationary,First Difference
