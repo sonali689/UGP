@@ -16,7 +16,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import grangercausalitytests
-from statsmodels.tsa.ardl import ARDL, ardl_select_order
+from statsmodels.tsa.ardl import UECM, ardl_select_order
 from statsmodels.stats.diagnostic import acorr_breusch_godfrey, het_breuschpagan
 from statsmodels.stats.stattools import jarque_bera
 import os
@@ -37,114 +37,113 @@ def load_data():
 # ═══════════════════════════════════════════════════════════════
 
 def run_ardl_model(df, dep_var='LOG_NEER', label='NEER'):
-    """Estimate ARDL model and bounds test."""
-    print(f"\n  --- ARDL Model: {label} ---")
-    
+    """Estimate UECM (Unrestricted ECM) and run the Pesaran-Shin-Smith bounds test.
+
+    statsmodels implements bounds_test() on the UECM results class, not on
+    the plain ARDL results class. Using UECM directly ensures the bounds test
+    actually executes and the output file is written.
+    """
+    print(f"\n  --- UECM / ARDL Bounds Test: {label} ---")
+
     df_sample = df.loc['2001-04':'2026-06'].copy()
-    
+
     # Independent variables
     exog_cols = ['LOG_OIL', 'CPI_YOY', 'LOG_EPU', 'INT_DIFF', 'LOG_RESERVES']
-    
+
     # Prepare data
     y = df_sample[dep_var].dropna()
     X = df_sample[exog_cols].dropna()
-    
+
     # Align
     common_idx = y.index.intersection(X.index)
     y = y.loc[common_idx]
     X = X.loc[common_idx]
-    
+
     # Drop any remaining NaN
     mask = y.notna() & X.notna().all(axis=1)
     y = y[mask]
     X = X[mask]
-    
+
     print(f"  Sample: {y.index.min().strftime('%Y-%m')} to {y.index.max().strftime('%Y-%m')} ({len(y)} obs)")
     print(f"  Dependent: {dep_var}")
     print(f"  Independent: {', '.join(exog_cols)}")
-    
-    # Select optimal ARDL lag order
+
+    # Select optimal lag order via AIC (used for both ARDL and UECM)
     print("\n  Selecting optimal lag order...")
     try:
-        sel = ardl_select_order(y, maxlag=6, exog=X, maxorder=4,
-                                ic='aic', trend='c')
-        print(f"  Selected ARDL order: ({sel.ar_lags}, {[sel.dl_lags.get(c, 0) for c in exog_cols]})")
-        
-        # Estimate ARDL model
+        sel = ardl_select_order(y, maxlag=6, exog=X, maxorder=4, ic='aic', trend='c')
         ar_order = max(sel.ar_lags) if sel.ar_lags else 1
-        dl_order = {}
-        for col in exog_cols:
-            lags = sel.dl_lags.get(col, [0])
-            dl_order[col] = max(lags) if lags else 0
-        
-        print(f"  AR order: {ar_order}")
-        print(f"  DL orders: {dl_order}")
-        
+        dl_order = {col: max(sel.dl_lags.get(col, [0])) for col in exog_cols}
+        print(f"  AR order: {ar_order}, DL orders: {dl_order}")
     except Exception as e:
-        print(f"  Auto-selection failed ({e}), using default ARDL(2,1,1,1,1,1)")
+        print(f"  Auto-selection failed ({e}), using default UECM(2,1,1,1,1,1)")
         ar_order = 2
         dl_order = {col: 1 for col in exog_cols}
-    
-    # Fit ARDL
+
+    # ── Estimate UECM (needed for bounds_test()) ──
+    # UECM is the Unrestricted Error Correction form of the ARDL model.
+    # It gives identical coefficient estimates to ARDL but exposes the
+    # bounds_test() method required for Pesaran, Shin & Smith (2001).
     try:
-        model = ARDL(y, lags=ar_order, exog=X, order=dl_order, trend='c')
-        result = model.fit()
-        
-        print("\n  === ARDL Estimation Results ===")
-        print(result.summary().as_text())
-        
-        # Save results
+        uecm_model  = UECM(y, lags=ar_order, exog=X, order=dl_order, trend='c')
+        uecm_result = uecm_model.fit()
+
+        print("\n  === UECM Estimation Results ===")
+        print(uecm_result.summary().as_text())
+
+        # Save coefficient table
         with open(os.path.join(OUTPUT_DIR, f'ardl_results_{label}.txt'), 'w', encoding='utf-8') as f:
-            f.write(result.summary().as_text())
-        
-        # ── ARDL Bounds Test ──
+            f.write(uecm_result.summary().as_text())
+
+        # ── ARDL Bounds Test (Pesaran, Shin & Smith, 2001) ──
+        # Case III: unrestricted constant, no trend (most common for macro levels)
         print("\n  === ARDL Bounds Test (Pesaran et al., 2001) ===")
-        try:
-            bounds = result.bounds_test(case=3)  # Case III: unrestricted constant, no trend
-            print(f"  F-statistic: {bounds.stat:.4f}")
-            print(f"  {'Significance':<15s} {'I(0) Bound':>12s} {'I(1) Bound':>12s} {'Decision':>15s}")
-            print("  " + "-" * 60)
-            for row in bounds.critical_values.itertuples():
-                sig = f"{row.Index}"
-                i0 = row._1
-                i1 = row._2
-                decision = 'Cointegration' if bounds.stat > i1 else ('Inconclusive' if bounds.stat > i0 else 'No cointegration')
-                print(f"  {sig:<15s} {i0:>12.4f} {i1:>12.4f} {decision:>15s}")
-            
-            with open(os.path.join(OUTPUT_DIR, f'bounds_test_{label}.txt'), 'w', encoding='utf-8') as f:
-                f.write(f"ARDL Bounds Test Results - {label}\n")
-                f.write(f"F-statistic: {bounds.stat:.4f}\n\n")
-                f.write(bounds.critical_values.to_string())
-        except Exception as e:
-            print(f"  Bounds test error: {e}")
-        
+        bounds = uecm_result.bounds_test(case=3)
+        print(f"  F-statistic: {bounds.stat:.4f}")
+        print(f"  {'Significance':<15s} {'I(0) Bound':>12s} {'I(1) Bound':>12s} {'Decision':>15s}")
+        print("  " + "-" * 60)
+        for row in bounds.critical_values.itertuples():
+            sig = f"{row.Index}"
+            i0  = row._1
+            i1  = row._2
+            decision = ('Cointegration'  if bounds.stat > i1 else
+                        'Inconclusive'   if bounds.stat > i0 else
+                        'No cointegration')
+            print(f"  {sig:<15s} {i0:>12.4f} {i1:>12.4f} {decision:>15s}")
+
+        # Save bounds test output
+        with open(os.path.join(OUTPUT_DIR, f'bounds_test_{label}.txt'), 'w', encoding='utf-8') as f:
+            f.write(f"ARDL Bounds Test Results — {label}\n")
+            f.write(f"F-statistic: {bounds.stat:.4f}\n\n")
+            f.write(bounds.critical_values.to_string())
+        print(f"  Saved: bounds_test_{label}.txt")
+
         # ── Diagnostics ──
         print("\n  === Diagnostic Tests ===")
-        residuals = result.resid
-        
+        residuals = uecm_result.resid
+
         # Breusch-Godfrey serial correlation
         try:
-            bg_stat, bg_pval, _, _ = acorr_breusch_godfrey(result, nlags=4)
+            bg_stat, bg_pval, _, _ = acorr_breusch_godfrey(uecm_result, nlags=4)
             print(f"  Breusch-Godfrey (serial correlation): stat={bg_stat:.4f}, p={bg_pval:.4f} "
                   f"{'[PASS: No serial correlation]' if bg_pval > 0.05 else '[FAIL: Serial correlation detected]'}")
         except Exception as e:
             print(f"  Breusch-Godfrey: Error - {e}")
-        
+
         # Jarque-Bera normality
         jb_stat, jb_pval, _, _ = jarque_bera(residuals)
         print(f"  Jarque-Bera (normality): stat={jb_stat:.4f}, p={jb_pval:.4f} "
               f"{'[PASS: Normal]' if jb_pval > 0.05 else '[FAIL: Non-normal (common in macro)]'}")
-        
-        # R-squared
-        print(f"  R-squared: {result.rsquared:.4f}")
-        print(f"  Adj R-squared: {result.rsquared_adj:.4f}")
-        print(f"  AIC: {result.aic:.4f}")
-        print(f"  BIC: {result.bic:.4f}")
-        
-        return result
-        
+
+        print(f"  R-squared:     {uecm_result.rsquared:.4f}")
+        print(f"  Adj R-squared: {uecm_result.rsquared_adj:.4f}")
+        print(f"  AIC:           {uecm_result.aic:.4f}")
+        print(f"  BIC:           {uecm_result.bic:.4f}")
+
+        return uecm_result
+
     except Exception as e:
-        print(f"  ARDL estimation error: {e}")
+        print(f"  UECM estimation error: {e}")
         import traceback
         traceback.print_exc()
         return None
@@ -375,75 +374,86 @@ def run_var_model(df):
 # PART C: GRANGER CAUSALITY TESTS
 # ═══════════════════════════════════════════════════════════════
 
-def run_granger_causality(df):
-    """Test Granger causality between key variable pairs."""
+def run_granger_causality(df, fixed_lag=None):
+    """Test Granger causality between key variable pairs.
+
+    Parameters
+    ----------
+    fixed_lag : int or None
+        The lag to use for every Granger test. When None, the function
+        determines the lag from VAR AIC selection.  Using a single
+        pre-specified lag avoids the multiple-testing inflation that
+        results from reporting the best p-value across several lags.
+    """
     print("\n" + "=" * 70)
     print("PART C: GRANGER CAUSALITY TESTS")
     print("=" * 70)
-    
+
     df_sample = df.loc['2001-04':'2026-06'].copy()
-    
+
+    # ── Determine lag from VAR AIC (if not supplied) ──
+    if fixed_lag is None:
+        var_cols_ref = ['D_LOG_OIL', 'D_CPI', 'D_INT_DIFF', 'D_LOG_RESERVES', 'D_LOG_NEER']
+        ref_data = df_sample[var_cols_ref].dropna()
+        aic_lag = VAR(ref_data).select_order(maxlags=12).aic
+        fixed_lag = max(aic_lag, 1)   # at least 1
+        print(f"\n  Lag fixed at {fixed_lag} (VAR AIC-optimal, used for ALL pairs).")
+        print(f"  Using a single pre-specified lag avoids multiple-testing inflation")
+        print(f"  that arises from reporting the minimum p-value across several lags.")
+    else:
+        print(f"\n  Lag fixed at {fixed_lag} (pre-specified).")
+
     # Pairs to test (cause, effect)
     pairs = [
-        ('D_LOG_OIL', 'D_LOG_NEER', 'Oil Returns -> NEER Returns'),
-        ('D_LOG_OIL', 'D_LOG_USDINR', 'Oil Returns -> USD/INR Returns'),
-        ('D_LOG_EPU', 'D_LOG_NEER', 'EPU Changes -> NEER Returns'),
-        ('D_LOG_EPU', 'D_LOG_USDINR', 'EPU Changes -> USD/INR Returns'),
-        ('D_CPI', 'D_LOG_NEER', 'CPI Changes -> NEER Returns'),
-        ('D_INT_DIFF', 'D_LOG_NEER', 'Int. Diff Changes -> NEER Returns'),
-        ('D_LOG_RESERVES', 'D_LOG_USDINR', 'Reserve Changes -> USD/INR Returns'),
-        ('D_LOG_USDINR', 'D_LOG_RESERVES', 'USD/INR Returns -> Reserve Changes'),
-        ('D_LOG_OIL', 'D_CPI', 'Oil Returns -> CPI Changes'),
-        ('D_LOG_OIL', 'D_INT_DIFF', 'Oil Returns -> Int. Diff Changes'),
+        ('D_LOG_OIL',       'D_LOG_NEER',     'Oil Returns -> NEER Returns'),
+        ('D_LOG_OIL',       'D_LOG_USDINR',   'Oil Returns -> USD/INR Returns'),
+        ('D_LOG_EPU',       'D_LOG_NEER',     'EPU Changes -> NEER Returns'),
+        ('D_LOG_EPU',       'D_LOG_USDINR',   'EPU Changes -> USD/INR Returns'),
+        ('D_CPI',           'D_LOG_NEER',     'CPI Changes -> NEER Returns'),
+        ('D_INT_DIFF',      'D_LOG_NEER',     'Int. Diff Changes -> NEER Returns'),
+        ('D_LOG_RESERVES',  'D_LOG_USDINR',   'Reserve Changes -> USD/INR Returns'),
+        ('D_LOG_USDINR',    'D_LOG_RESERVES', 'USD/INR Returns -> Reserve Changes'),
+        ('D_LOG_OIL',       'D_CPI',          'Oil Returns -> CPI Changes'),
+        ('D_LOG_OIL',       'D_INT_DIFF',     'Oil Returns -> Int. Diff Changes'),
     ]
-    
+
     results = []
-    max_lag = 6
-    
+
     print(f"\n  {'Hypothesis':<45s} {'Lag':>4s} {'F-stat':>10s} {'p-value':>10s} {'Conclusion':>20s}")
     print("  " + "-" * 95)
-    
+
     for cause, effect, label in pairs:
         data = df_sample[[effect, cause]].dropna()
         if len(data) < 30:
             print(f"  {label:<45s} {'--':>4s} {'--':>10s} {'--':>10s} {'Insufficient data':>20s}")
             continue
-        
+
         try:
-            gc_result = grangercausalitytests(data, maxlag=max_lag, verbose=False)
-            
-            # Find the lag with strongest evidence
-            best_lag = None
-            best_pval = 1.0
-            best_fstat = 0
-            
-            for lag in range(1, max_lag + 1):
-                f_stat = gc_result[lag][0]['ssr_ftest'][0]
-                p_val = gc_result[lag][0]['ssr_ftest'][1]
-                if p_val < best_pval:
-                    best_pval = p_val
-                    best_lag = lag
-                    best_fstat = f_stat
-            
-            conclusion = 'Granger-causes' if best_pval < 0.05 else 'No causality'
-            print(f"  {label:<45s} {best_lag:>4d} {best_fstat:>10.4f} {best_pval:>10.4f} {conclusion:>20s}")
-            
+            gc_result = grangercausalitytests(data, maxlag=fixed_lag, verbose=False)
+
+            # Use only the pre-specified lag (no search across lags)
+            f_stat = gc_result[fixed_lag][0]['ssr_ftest'][0]
+            p_val  = gc_result[fixed_lag][0]['ssr_ftest'][1]
+
+            conclusion = 'Granger-causes' if p_val < 0.05 else 'No causality'
+            print(f"  {label:<45s} {fixed_lag:>4d} {f_stat:>10.4f} {p_val:>10.4f} {conclusion:>20s}")
+
             results.append({
-                'Hypothesis': label,
-                'Best_Lag': best_lag,
-                'F_statistic': best_fstat,
-                'p_value': best_pval,
-                'Conclusion': conclusion
+                'Hypothesis':  label,
+                'Lag':         fixed_lag,
+                'F_statistic': f_stat,
+                'p_value':     p_val,
+                'Conclusion':  conclusion
             })
-            
+
         except Exception as e:
             print(f"  {label:<45s}  Error: {e}")
-    
+
     # Save
     gc_df = pd.DataFrame(results)
     gc_df.to_csv(os.path.join(OUTPUT_DIR, 'granger_causality.csv'), index=False, float_format='%.4f')
     print("\n  Saved: granger_causality.csv")
-    
+
     return gc_df
 
 
@@ -467,9 +477,14 @@ def main():
     
     # PART B: VAR
     var_neer, var_usdinr = run_var_model(df)
-    
+
     # PART C: Granger Causality
-    gc_results = run_granger_causality(df)
+    # Pass the VAR AIC lag so all Granger tests use the same pre-specified lag
+    aic_lag = VAR(df.loc['2001-04':'2026-06',
+                         ['D_LOG_OIL', 'D_CPI', 'D_INT_DIFF',
+                          'D_LOG_RESERVES', 'D_LOG_NEER']].dropna()
+                  ).select_order(maxlags=12).aic
+    gc_results = run_granger_causality(df, fixed_lag=max(aic_lag, 1))
     
     print("\n" + "=" * 70)
     print("Phase 4 COMPLETE!")

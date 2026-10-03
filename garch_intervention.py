@@ -197,28 +197,47 @@ def intervention_analysis(df, er_results, oil_vol):
     print(f"    Coeff on D_LOG_RESERVES: {ols_level.params['D_LOG_RESERVES']:.6f}")
     print(f"    p-value:                 {ols_level.pvalues['D_LOG_RESERVES']:.6f}")
     sign = 'negative' if ols_level.params['D_LOG_RESERVES'] < 0 else 'positive'
-    sig = 'significant' if ols_level.pvalues['D_LOG_RESERVES'] < 0.05 else 'not significant'
-    print(f"    Interpretation: Reserve accumulation has a {sign} and {sig} effect on USD/INR depreciation")
+    sig  = 'significant' if ols_level.pvalues['D_LOG_RESERVES'] < 0.05 else 'not significant'
+    print(f"    Raw association: Reserve accumulation has a {sign} and {sig} effect on USD/INR depreciation")
+    print(f"    NOTE: This association reflects (at least partly) reverse causality and valuation effects.")
+    print(f"    The RBI buys reserves when INR is already strong (endogeneity), and reserves reported")
+    print(f"    in USD fall mechanically when the dollar strengthens globally (valuation), both of which")
+    print(f"    create a negative coefficient independent of any causal intervention effect.")
+
+    oil_coef = ols_level.params['D_LOG_OIL']
+    print(f"\n    Coeff on D_LOG_OIL: {oil_coef:.6f}")
+    if oil_coef < 0:
+        print(f"    A negative oil coefficient means higher oil prices are ASSOCIATED WITH RUPEE APPRECIATION")
+        print(f"    (i.e., USD/INR falls). This is a dollar effect: oil tends to rise when the USD is")
+        print(f"    globally weak, so the sign does NOT imply India benefits from oil price increases.")
+    else:
+        print(f"    A positive oil coefficient means higher oil prices are associated with rupee depreciation.")
     
     # ── Model 2: Volatility Effect ──
     # Does intervention reduce exchange rate volatility?
+    # EPU and INT_DIFF must be in first-differenced (stationary) form.
+    # Phase 3 finds both LOG_EPU and INT_DIFF are I(1); using their levels
+    # in an OLS with a stationary LHS (conditional variance) risks spurious
+    # regression and the Durbin-Watson is near zero in the level specification.
     print("\n  --- Model 2: Volatility Effect of Intervention ---")
-    
+    print("  NOTE: EPU and INT_DIFF entered as first differences (stationary form).")
+
     usdinr_vol_series = er_results['USD/INR']['cond_var']
-    abs_reserves = df_sample['D_LOG_RESERVES'].abs()
-    oil_vol_series = oil_vol ** 2
-    epu_level = df_sample['LOG_EPU']
-    
+    abs_reserves      = df_sample['D_LOG_RESERVES'].abs()
+    oil_vol_series    = oil_vol ** 2
+    d_epu             = df_sample['D_LOG_EPU']    # first difference of LOG_EPU
+    d_int_diff        = df_sample['D_INT_DIFF']   # first difference of INT_DIFF
+
     vol_data = pd.DataFrame({
-        'ER_VOLATILITY': usdinr_vol_series,
+        'ER_VOLATILITY':  usdinr_vol_series,
         'ABS_D_RESERVES': abs_reserves,
         'OIL_VOLATILITY': oil_vol_series,
-        'LOG_EPU': epu_level,
-        'INT_DIFF': df_sample['INT_DIFF']
+        'D_LOG_EPU':      d_epu,
+        'D_INT_DIFF':     d_int_diff
     }).dropna()
-    
+
     y_vol = vol_data['ER_VOLATILITY']
-    X_vol = add_constant(vol_data[['ABS_D_RESERVES', 'OIL_VOLATILITY', 'LOG_EPU', 'INT_DIFF']])
+    X_vol = add_constant(vol_data[['ABS_D_RESERVES', 'OIL_VOLATILITY', 'D_LOG_EPU', 'D_INT_DIFF']])
     
     ols_vol = OLS(y_vol, X_vol).fit(cov_type='HC1')
     print(ols_vol.summary())
@@ -255,40 +274,46 @@ def intervention_analysis(df, er_results, oil_vol):
     print(f"    Reserve Selling coeff: {ols_asym.params['RESERVES_SELL']:.6f} (p={ols_asym.pvalues['RESERVES_SELL']:.4f})")
 
 
-def intervention_granger(df):
-    """Granger causality between reserves and exchange rate."""
+def intervention_granger(df, fixed_lag=None):
+    """Granger causality between reserves and exchange rate.
+
+    Uses a single pre-specified lag (VAR AIC-optimal) for all pairs to avoid
+    multiple-testing inflation from searching across lags 1-6.
+    """
     print("\n[4/4] Granger Causality: Reserves <-> Exchange Rate...")
-    
+
     df_sample = df.loc['2001-04':'2026-06'].copy()
-    
+
+    # Determine lag from VAR AIC if not supplied
+    if fixed_lag is None:
+        var_cols_ref = ['D_LOG_RESERVES', 'D_LOG_USDINR', 'D_LOG_NEER']
+        ref_data = df_sample[var_cols_ref].dropna()
+        from statsmodels.tsa.api import VAR as _VAR
+        aic_lag = _VAR(ref_data).select_order(maxlags=12).aic
+        fixed_lag = max(aic_lag, 1)
+        print(f"\n  Lag fixed at {fixed_lag} (VAR AIC-optimal, same lag for all pairs).")
+    else:
+        print(f"\n  Lag fixed at {fixed_lag} (pre-specified).")
+
     pairs = [
         ('D_LOG_RESERVES', 'D_LOG_USDINR', 'Reserve Changes -> USD/INR Returns'),
-        ('D_LOG_USDINR', 'D_LOG_RESERVES', 'USD/INR Returns -> Reserve Changes'),
-        ('D_LOG_RESERVES', 'D_LOG_NEER', 'Reserve Changes -> NEER Returns'),
-        ('D_LOG_NEER', 'D_LOG_RESERVES', 'NEER Returns -> Reserve Changes'),
+        ('D_LOG_USDINR',   'D_LOG_RESERVES', 'USD/INR Returns -> Reserve Changes'),
+        ('D_LOG_RESERVES', 'D_LOG_NEER',    'Reserve Changes -> NEER Returns'),
+        ('D_LOG_NEER',     'D_LOG_RESERVES', 'NEER Returns -> Reserve Changes'),
     ]
-    
+
     print(f"\n  {'Hypothesis':<45s} {'Lag':>4s} {'F-stat':>10s} {'p-value':>10s} {'Result':>20s}")
     print("  " + "-" * 95)
-    
+
     for cause, effect, label in pairs:
         data = df_sample[[effect, cause]].dropna()
-        gc = grangercausalitytests(data, maxlag=6, verbose=False)
-        
-        best_lag = None
-        best_pval = 1.0
-        best_fstat = 0
-        
-        for lag in range(1, 7):
-            f_stat = gc[lag][0]['ssr_ftest'][0]
-            p_val = gc[lag][0]['ssr_ftest'][1]
-            if p_val < best_pval:
-                best_pval = p_val
-                best_lag = lag
-                best_fstat = f_stat
-        
-        result = 'YES - Granger-causes' if best_pval < 0.05 else 'NO'
-        print(f"  {label:<45s} {best_lag:>4d} {best_fstat:>10.4f} {best_pval:>10.4f} {result:>20s}")
+        gc = grangercausalitytests(data, maxlag=fixed_lag, verbose=False)
+
+        f_stat = gc[fixed_lag][0]['ssr_ftest'][0]
+        p_val  = gc[fixed_lag][0]['ssr_ftest'][1]
+
+        result_str = 'YES - Granger-causes' if p_val < 0.05 else 'NO'
+        print(f"  {label:<45s} {fixed_lag:>4d} {f_stat:>10.4f} {p_val:>10.4f} {result_str:>20s}")
 
 
 def main():

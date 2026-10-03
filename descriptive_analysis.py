@@ -30,16 +30,21 @@ def load_data():
 def summary_statistics(df):
     """Generate and save summary statistics table."""
     print("\n[1/4] Summary Statistics...")
-    
+
+    # Restrict to the analysis sample used in all other phases.
+    # Without this filter, series starting in 1989/1995 pull in observations
+    # that are outside the study window and make the summary figures inconsistent.
+    df_sample = df.loc['2001-04':'2026-06'].copy()
+
     # Key variables for analysis
-    cols = ['NEER', 'USDINR', 'OIL_BRENT', 'CPI_YOY', 'EPU', 
+    cols = ['NEER', 'USDINR', 'OIL_BRENT', 'CPI_YOY', 'EPU',
             'FX_RESERVES', 'REPO_RATE', 'FED_RATE', 'IIP_YOY',
             'INT_DIFF', 'D_LOG_NEER', 'D_LOG_USDINR', 'D_LOG_OIL']
-    
-    stats = df[cols].describe().T
-    stats['skewness'] = df[cols].skew()
-    stats['kurtosis'] = df[cols].kurtosis()
-    stats['obs'] = df[cols].count()
+
+    stats = df_sample[cols].describe().T
+    stats['skewness'] = df_sample[cols].skew()
+    stats['kurtosis'] = df_sample[cols].kurtosis()
+    stats['obs'] = df_sample[cols].count()
     
     # Reorder columns
     stats = stats[['obs', 'mean', 'std', 'min', '25%', '50%', '75%', 'max', 'skewness', 'kurtosis']]

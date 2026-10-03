@@ -24,14 +24,19 @@ def load_data():
                      index_col='date', parse_dates=True)
     return df
 
-def adf_test(series, name, maxlag=None):
-    """Augmented Dickey-Fuller test."""
+def adf_test(series, name, maxlag=None, regression='ct'):
+    """Augmented Dickey-Fuller test.
+    
+    regression : str
+        'ct' = constant + trend  (use for level series that may be trending)
+        'c'  = constant only     (use for first-difference series)
+    """
     s = series.dropna()
     if len(s) < 20:
-        return {'Variable': name, 'ADF_stat': np.nan, 'ADF_pvalue': np.nan, 
+        return {'Variable': name, 'ADF_stat': np.nan, 'ADF_pvalue': np.nan,
                 'ADF_lags': np.nan, 'ADF_result': 'Insufficient data'}
-    
-    result = adfuller(s, maxlag=maxlag, autolag='AIC')
+
+    result = adfuller(s, maxlag=maxlag, autolag='AIC', regression=regression)
     return {
         'Variable': name,
         'ADF_stat': result[0],
@@ -40,7 +45,8 @@ def adf_test(series, name, maxlag=None):
         'ADF_1%': result[4]['1%'],
         'ADF_5%': result[4]['5%'],
         'ADF_10%': result[4]['10%'],
-        'ADF_result': 'Stationary' if result[1] < 0.05 else 'Non-stationary'
+        'ADF_result': 'Stationary' if result[1] < 0.05 else 'Non-stationary',
+        'ADF_regression': regression
     }
 
 def kpss_test(series, name, regression='c'):
@@ -91,66 +97,68 @@ def run_unit_root_tests(df):
     df_sample = df.loc['2001-04':'2026-06'].copy()
     
     results = []
-    
-    print("\n  ── Level Variables ──")
+
+    # Level variables: use regression='ct' (constant + trend) because most
+    # macro levels (exchange rates, reserves, prices) exhibit deterministic trends.
+    # Omitting the trend under H0 biases the ADF toward non-rejection of a unit root.
+    print("\n  ── Level Variables (ADF with constant + trend) ──")
     print(f"  {'Variable':<25s} {'ADF stat':>10s} {'p-value':>10s} {'ADF':>15s} {'KPSS stat':>10s} {'p-value':>10s} {'KPSS':>15s}")
     print("  " + "-" * 100)
-    
+
     for col, label in level_vars.items():
-        adf = adf_test(df_sample[col], label)
+        adf = adf_test(df_sample[col], label, regression='ct')  # trend included
         kpss_r = kpss_test(df_sample[col], label)
-        
+
         row = {**adf, **kpss_r, 'Type': 'Level'}
         results.append(row)
-        
+
         print(f"  {label:<25s} {adf['ADF_stat']:>10.4f} {adf['ADF_pvalue']:>10.4f} {adf['ADF_result']:>15s} "
               f"{kpss_r['KPSS_stat']:>10.4f} {kpss_r['KPSS_pvalue']:>10.4f} {kpss_r['KPSS_result']:>15s}")
-    
-    print("\n  ── First-Difference Variables ──")
+
+    # First-difference variables: no trend needed (differencing removes linear trend)
+    print("\n  ── First-Difference Variables (ADF with constant only) ──")
     print(f"  {'Variable':<25s} {'ADF stat':>10s} {'p-value':>10s} {'ADF':>15s} {'KPSS stat':>10s} {'p-value':>10s} {'KPSS':>15s}")
     print("  " + "-" * 100)
-    
+
     for col, label in diff_vars.items():
-        adf = adf_test(df_sample[col], label)
+        adf = adf_test(df_sample[col], label, regression='c')  # no trend
         kpss_r = kpss_test(df_sample[col], label)
-        
+
         row = {**adf, **kpss_r, 'Type': 'First Difference'}
         results.append(row)
-        
+
         print(f"  {label:<25s} {adf['ADF_stat']:>10.4f} {adf['ADF_pvalue']:>10.4f} {adf['ADF_result']:>15s} "
               f"{kpss_r['KPSS_stat']:>10.4f} {kpss_r['KPSS_pvalue']:>10.4f} {kpss_r['KPSS_result']:>15s}")
     
     # Determine integration order
+    # Level ADF uses ct; diff ADF uses c (consistent with tests above)
     print("\n  ── Integration Order Summary ──")
     integration_orders = []
     for col, label in level_vars.items():
-        adf_level = adf_test(df_sample[col], label)
+        adf_level = adf_test(df_sample[col], label, regression='ct')
         kpss_level = kpss_test(df_sample[col], label)
-        
-        # Check first difference
+
+        # Check first difference (no trend needed after differencing)
         diff_col = 'D_' + col if 'D_' + col in df_sample.columns else None
-        if diff_col is None:
-            # Compute it
-            diff_series = df_sample[col].diff()
-        else:
-            diff_series = df_sample[diff_col]
-        
-        adf_diff = adf_test(diff_series, f'Δ{label}')
-        
-        # Determine order
+        diff_series = df_sample[diff_col] if diff_col else df_sample[col].diff()
+        adf_diff = adf_test(diff_series, f'Δ{label}', regression='c')
+
+        # Determine order: stationary in levels → I(0); stationary after one diff → I(1)
         if adf_level['ADF_result'] == 'Stationary' and kpss_level['KPSS_result'] == 'Stationary':
             order = 'I(0)'
         elif adf_diff['ADF_result'] == 'Stationary':
             order = 'I(1)'
         else:
             order = 'I(2) or unclear'
-        
+
         integration_orders.append({
             'Variable': label,
             'Column': col,
             'ADF_Level_pvalue': adf_level['ADF_pvalue'],
+            'ADF_Level_regression': 'ct',
             'KPSS_Level_pvalue': kpss_level['KPSS_pvalue'],
             'ADF_Diff_pvalue': adf_diff['ADF_pvalue'],
+            'ADF_Diff_regression': 'c',
             'Integration_Order': order
         })
         print(f"  {label:<25s}: {order}")
@@ -185,42 +193,69 @@ def johansen_test(df):
     
     # Run Johansen test (det_order: -1=no const, 0=restricted const, 1=unrestricted const)
     # k_ar_diff: number of lagged differences (like VAR lags - 1)
+    johansen_lines = []
+
     for det_order in [0, 1]:
         det_label = 'Restricted Constant' if det_order == 0 else 'Unrestricted Constant'
         print(f"\n  ── Johansen Test ({det_label}) ──")
-        
+        johansen_lines.append(f"\n{'='*70}")
+        johansen_lines.append(f"Johansen Cointegration Test — {det_label}")
+        johansen_lines.append(f"Variables: {', '.join(all_vars)}")
+        johansen_lines.append(f"Observations: {len(data)}, k_ar_diff=2")
+        johansen_lines.append('='*70)
+
         try:
             result = coint_johansen(data.values, det_order=det_order, k_ar_diff=2)
-            
-            print(f"\n  {'Hypothesis':<20s} {'Trace Stat':>12s} {'5% CV':>10s} {'Result':>15s}")
-            print("  " + "-" * 60)
-            
             n_vars = len(all_vars)
+
+            # ── Trace test ──
+            header = f"\n  {'Hypothesis':<20s} {'Trace Stat':>12s} {'5% CV':>10s} {'Result':>15s}"
+            print(header)
+            print("  " + "-" * 60)
+            johansen_lines.append("\nTrace Test:")
+            johansen_lines.append(f"  {'Hypothesis':<20s} {'Trace Stat':>12s} {'5% CV':>10s} {'Result':>15s}")
+            johansen_lines.append("  " + "-" * 60)
+
             for i in range(n_vars):
                 trace_stat = result.lr1[i]
-                cv_5 = result.cvt[i, 1]  # 5% critical value
+                cv_5 = result.cvt[i, 1]
                 reject = 'Reject H0' if trace_stat > cv_5 else 'Fail to Reject'
-                print(f"  r <= {i:<14d} {trace_stat:>12.4f} {cv_5:>10.4f} {reject:>15s}")
-            
+                line = f"  r <= {i:<14d} {trace_stat:>12.4f} {cv_5:>10.4f} {reject:>15s}"
+                print(line)
+                johansen_lines.append(line)
+
+            # ── Max-Eigenvalue test ──
             print(f"\n  {'Hypothesis':<20s} {'Max-Eigen':>12s} {'5% CV':>10s} {'Result':>15s}")
             print("  " + "-" * 60)
-            
+            johansen_lines.append("\nMax-Eigenvalue Test:")
+            johansen_lines.append(f"  {'Hypothesis':<20s} {'Max-Eigen':>12s} {'5% CV':>10s} {'Result':>15s}")
+            johansen_lines.append("  " + "-" * 60)
+
             for i in range(n_vars):
                 max_stat = result.lr2[i]
-                cv_5 = result.cvm[i, 1]  # 5% critical value
+                cv_5 = result.cvm[i, 1]
                 reject = 'Reject H0' if max_stat > cv_5 else 'Fail to Reject'
-                print(f"  r <= {i:<14d} {max_stat:>12.4f} {cv_5:>10.4f} {reject:>15s}")
-            
+                line = f"  r <= {i:<14d} {max_stat:>12.4f} {cv_5:>10.4f} {reject:>15s}"
+                print(line)
+                johansen_lines.append(line)
+
             # Count cointegrating vectors
             n_coint_trace = sum(1 for i in range(n_vars) if result.lr1[i] > result.cvt[i, 1])
-            n_coint_max = sum(1 for i in range(n_vars) if result.lr2[i] > result.cvm[i, 1])
-            print(f"\n  → Cointegrating vectors (Trace): {n_coint_trace}")
-            print(f"  → Cointegrating vectors (Max-Eigen): {n_coint_max}")
-            
+            n_coint_max   = sum(1 for i in range(n_vars) if result.lr2[i] > result.cvm[i, 1])
+            summary = (f"\n  → Cointegrating vectors (Trace):      {n_coint_trace}\n"
+                       f"  → Cointegrating vectors (Max-Eigen): {n_coint_max}")
+            print(summary)
+            johansen_lines.append(summary)
+
         except Exception as e:
             print(f"  Error: {e}")
-    
-    print("\n  Saved results to unit_root_tests.csv (combined)")
+            johansen_lines.append(f"  Error: {e}")
+
+    # ── Save Johansen results to file so they are verifiable from the repo ──
+    johansen_path = os.path.join(OUTPUT_DIR, 'johansen_cointegration.txt')
+    with open(johansen_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(johansen_lines))
+    print(f"\n  Saved: johansen_cointegration.txt")
 
 
 def main():

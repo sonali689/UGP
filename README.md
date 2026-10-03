@@ -60,9 +60,9 @@ All data sourced from **CEIC Database** (monthly frequency). Sample period: **Ap
 - Computed 24-month rolling correlations between oil/exchange rate pairs
 
 **Key observations:**
-- USD/INR depreciated from ₹31 (1995) to ₹96 (2026), while NEER declined from 199 to 80
-- Oil prices are highly volatile (std = $32.89/barrel) with major swings during GFC, COVID
-- India's FX reserves grew from $1.1 billion (1989) to $617 billion (peak)
+- USD/INR depreciated from ₹44 (2001) to ₹96 (2026), while NEER declined from ~157 to ~80 (summary statistics restricted to the 2001–2026 analysis sample)
+- Oil prices are highly volatile (std ≈ $33/barrel) with major swings during GFC, COVID
+- India's FX reserves grew from ~$42 billion (2001) to $617 billion (peak)
 
 ### Phase 3: Unit Root & Cointegration Tests (`stationarity_tests.py`)
 
@@ -80,17 +80,21 @@ All data sourced from **CEIC Database** (monthly frequency). Sample period: **Ap
 | Repo Rate | Borderline | Stationary | I(1) |
 | IIP Growth | Stationary | — | I(0) |
 
-**Johansen cointegration:** 1 cointegrating vector found at 5% significance (both Trace and Max-Eigenvalue), confirming a long-run equilibrium relationship.
+**Johansen cointegration:** Results saved to `output/johansen_cointegration.txt`. Both the Trace and Max-Eigenvalue tests indicate at least one cointegrating vector at 5% significance, consistent with a long-run equilibrium relationship among the I(1) variables.
+
+**ADF test specification:** Level variables are tested with a constant-and-trend specification (`regression='ct'`) because macro series such as log(reserves) and log(NEER) exhibit clear deterministic trends; omitting the trend biases the test toward non-rejection of a unit root.
 
 **Implication:** Mix of I(0) and I(1) justifies using the **ARDL bounds testing approach** (Pesaran, Shin & Smith, 2001).
 
 ### Phase 4: ARDL Model & Structural VAR (`ardl_svar_model.py`)
 
-#### 4a. ARDL Bounds Test & Estimation
+#### 4a. UECM / ARDL Bounds Test & Estimation
 
-- Estimated ARDL models with NEER and USD/INR as dependent variables
+- Estimated Unrestricted Error Correction Models (UECM) with NEER and USD/INR as dependent variables
+- The UECM is the error-correction reparametrisation of the ARDL model; statsmodels' `bounds_test()` method is available on the UECM results class
 - Independent variables: Log(Oil), CPI, Log(EPU), Interest Differential, Log(Reserves)
 - Full regression outputs in `output/ardl_results_NEER.txt` and `output/ardl_results_USDINR.txt`
+- Bounds test results in `output/bounds_test_NEER.txt` and `output/bounds_test_USDINR.txt`
 
 #### 4b. VAR(3) — Impulse Response Functions (IRFs)
 
@@ -100,8 +104,8 @@ A 5-variable VAR was estimated with Cholesky ordering:
 Oil is ordered first (most exogenous for India as a price-taker in global oil markets).
 
 **Key IRF findings:**
-- Oil price shocks have a small negative effect on NEER returns (appreciation shock causes NEER to increase slightly), but the effect is short-lived
-- Reserve shocks have a noticeable impact on USD/INR, consistent with intervention effectiveness
+- Oil price shocks have a small, short-lived negative effect on USD/INR returns (higher oil → small INR appreciation in the short run), likely reflecting the global dollar effect (oil and the dollar tend to move in opposite directions)
+- Reserve shocks have a noticeable contemporaneous impact on USD/INR, consistent with intervention having some effect on the exchange rate
 
 #### 4c. Forecast Error Variance Decomposition (FEVD)
 
@@ -113,7 +117,9 @@ Oil is ordered first (most exogenous for India as a price-taker in global oil ma
 | **ΔReserves** | **1.6%** | **15.3%** |
 | Own shocks | 95.3% | 78.1% |
 
-**Key finding:** Reserve changes explain **15.3% of USD/INR variance** — the single largest external contributor, much more than oil (2.3%) or inflation (3.0%). This is strong evidence that RBI intervention materially influences the bilateral exchange rate.
+**Key finding:** Reserve changes explain **15.3% of USD/INR variance** — the single largest external contributor, much more than oil (2.3%) or inflation (3.0%). 
+
+> **Note on Cholesky ordering:** The VAR uses the ordering `[Oil, ΔCPI, ΔInt.Diff, ΔReserves, USD/INR]`. With reserves ordered before USD/INR, any contemporaneous correlation between the two — including the mechanical valuation effect (dollar-reported reserves fall when the dollar strengthens) — is attributed to "reserve shocks." The 15.3% figure should therefore be interpreted as an upper bound on the contribution of genuine RBI intervention.
 
 #### 4d. Granger Causality Tests
 
@@ -126,7 +132,7 @@ Oil is ordered first (most exogenous for India as a price-taker in global oil ma
 | EPU → Exchange Rate | — | >0.29 | No |
 | CPI → NEER | 1.41 | 0.241 | No |
 
-**Key finding:** Reserve changes **Granger-cause** USD/INR movements at 5% significance. Oil Granger-causes interest rate differential changes, confirming the oil → monetary policy → exchange rate transmission channel described in the Aktuğ & Rezghi paper.
+**Key finding:** Using a single pre-specified lag (VAR AIC-optimal) for all tests to avoid multiple-testing inflation. Reserve changes Granger-cause USD/INR movements, and Oil Granger-causes interest rate differential changes, consistent with an oil → monetary policy → exchange rate transmission channel.
 
 ### Phase 5: GARCH & Intervention Analysis (`garch_intervention.py`)
 
@@ -136,7 +142,7 @@ Oil is ordered first (most exogenous for India as a price-taker in global oil ma
 |--------------|----------|-----------|-----|----------------|
 | NEER | 0.061 | 0.892 | **0.953** | Highly persistent |
 | USD/INR | 0.129 | 0.871 | **1.000** | Near-IGARCH (integrated) |
-| Oil | 0.492 | 0.000 | 0.492 | Moderate persistence |
+| Oil | 0.492 | 0.000 | 0.492 | Close to ARCH(1); β ≈ 0, limited GARCH persistence |
 
 USD/INR volatility is near-IGARCH (α+β ≈ 1), meaning volatility shocks are permanent — they never fully die out. This provides strong theoretical justification for RBI's active volatility management.
 
@@ -149,7 +155,11 @@ USD/INR volatility is near-IGARCH (α+β ≈ 1), meaning volatility shocks are p
 R² = 0.222, N = 302, HC1 robust standard errors
 ```
 
-**Interpretation:** A 1% increase in reserves is associated with a **0.26% appreciation** of the INR (highly significant). Oil price increases and economic policy uncertainty are also significant drivers of depreciation.
+**Interpretation:** A 1% increase in reserves is associated with a **0.26% appreciation** of the INR (USD/INR falls). 
+
+> **Caveats on the reserve coefficient:** This negative coefficient has at least two non-causal interpretations. First, *valuation effect*: India's reserves are reported in USD but partly held in euros, yen, and gold; when the dollar strengthens globally, those assets lose dollar value, so reported reserves fall at the same moment the rupee weakens — creating a mechanical negative correlation with no RBI action involved. Second, *reverse causality*: the RBI buys dollars when the rupee is *already* appreciating. Both effects push the coefficient negative regardless of whether intervention actually works. The coefficient should therefore not be read as a clean causal estimate.
+
+> **Oil sign:** The oil coefficient (−0.018) is **negative**. Since the dependent variable is ΔUSD/INR (positive = depreciation), a negative sign means higher oil prices are associated with rupee *appreciation*. This is a global dollar effect — oil and the dollar tend to move in opposite directions — and does **not** mean India benefits from oil price increases.
 
 #### 5c. Asymmetric Intervention Effects
 
@@ -158,7 +168,7 @@ R² = 0.222, N = 302, HC1 robust standard errors
 | Reserve **Buying** (accumulation) | −0.173 | 0.0001 | Moderates appreciation |
 | Reserve **Selling** (decumulation) | −0.422 | 0.0000 | Strongly fights depreciation |
 
-**Key finding:** Reserve selling during crises is **2.4× more effective** than reserve buying. This asymmetry is consistent with "leaning against the wind" behavior and matches the paper's theoretical prediction that FXI is most valuable during adverse oil shocks.
+**Key finding:** Reserve selling during crises is **2.4× more effective** than reserve buying in the raw regression. However, since the RBI intervenes precisely when the exchange rate is moving ("leaning against the wind"), the negative coefficient on buying and selling are endogenous to the direction of RBI action — not a clean measure of its causal effect.
 
 #### 5d. Granger Causality — Intervention Direction
 
@@ -167,7 +177,7 @@ R² = 0.222, N = 302, HC1 robust standard errors
 | ΔReserves → USD/INR | 5.91 | **0.016** | RBI intervention **causes** exchange rate changes |
 | NEER → ΔReserves | 8.99 | **0.003** | Exchange rate movements **trigger** intervention |
 
-Both directions are significant, confirming the RBI follows a **reactive "leaning against the wind"** strategy — it intervenes in response to exchange rate movements, and those interventions then affect the rate.
+Both directions are significant, consistent with the RBI following a **reactive "leaning against the wind"** strategy — it intervenes in response to exchange rate movements, and those interventions then Granger-cause subsequent rate changes. Granger causality tests use a single VAR AIC-selected lag for all pairs.
 
 ### Phase 6: Cost-Benefit Analysis (`cost_benefit_analysis.py`)
 
@@ -175,7 +185,9 @@ Both directions are significant, confirming the RBI follows a **reactive "leanin
 
 The quasi-fiscal cost = Reserves × (Sterilization cost − Return on reserves) / 12
 
-Using Repo Rate as sterilization cost and Fed Funds Rate as return proxy:
+Using Repo Rate as sterilization cost and Fed Funds Rate as return proxy.
+
+> **Limitations of this formula:** (1) The cost is applied to the *entire* reserve stock, not just the portion built up through active intervention. (2) The Fed Funds rate proxies for return on all reserves, but reserves include longer-dated bonds and gold, which typically yield more. (3) The formula ignores currency valuation gains: the rupee depreciated roughly 3%/year over the sample, meaning dollar assets held as reserves gained in rupee terms, partially offsetting the interest spread. These factors together imply the \~USD 334 billion figure overstates the true net carrying cost.
 
 | Period | Metric | Value |
 |--------|--------|-------|
@@ -190,24 +202,24 @@ Annual costs ranged from $2.7 billion (2006, low spread) to $23.1 billion (2015,
 | Crisis | USD/INR Change | Reserve Change | RBI Action |
 |--------|---------------|----------------|------------|
 | **2008 GFC** | +11.6% depreciation | −$48.2 billion | Heavy selling to defend INR |
-| **2013 Taper Tantrum** | +12.5% depreciation | +$9.2 billion | Relied on monetary tightening |
-| **2014-16 Oil Crash** | +12.2% depreciation | +$46.8 billion | Accumulated reserves (favorable oil) |
+| **2013 Taper Tantrum** | +12.5% depreciation | +$9.2 billion | Relied on monetary tightening and FCNR(B) dollar swap window |
+| **2014-16 Oil Crash** | +12.2% depreciation | +$46.8 billion | Accumulated reserves (INR benefited from lower import bill) |
 | **2018 EM Crisis** | +12.2% depreciation | −$28.1 billion | Sold to stem capital outflows |
 | **2020 COVID** | +2.8% depreciation | +$55.8 billion | Massive accumulation during inflows |
 | **2022 Russia-Ukraine** | +9.8% depreciation | −$92.2 billion | Largest-ever drawdown |
 
-The RBI follows a clear **countercyclical** strategy: accumulating reserves during calm periods and drawing them down during crises. The 2022 drawdown of $92.2 billion was unprecedented, but limited INR depreciation to 9.8% despite the largest energy shock in decades.
+The RBI follows a broadly **countercyclical** pattern: accumulating reserves during calm periods and drawing them down during crises. The 2022 drawdown of $92.2 billion was unprecedented; note that a significant portion reflects **valuation losses** (non-dollar assets and gold losing dollar value as the USD strengthened globally), not all of it active reserve sales.
 
 #### 6c. Overall Assessment
 
 | Dimension | Assessment |
 |-----------|-----------|
-| **Cost** | USD 334 billion cumulative (significant but manageable at ~2% of cumulative GDP) |
-| **Level effect** | Significant — 1% reserve change → 0.26% exchange rate impact |
-| **Volatility** | RBI intervenes when volatility is high (endogenous); direct volatility-reducing effect not statistically significant |
-| **Crisis insurance** | Invaluable — prevented larger depreciations in all 6 major crises |
+| **Cost** | USD 334 billion cumulative (upper-bound estimate; formula overstates cost by ignoring valuation gains and applying to the full stock) |
+| **Level effect** | Negative and significant association between reserve changes and USD/INR — but causal interpretation is confounded by reverse causality and valuation effects |
+| **Volatility** | Volatility regression uses stationary (first-differenced) EPU and interest differential; direct volatility-reducing effect is not statistically significant |
+| **Crisis insurance** | The table documents what happened during 6 episodes; a formal counterfactual (what would have happened without intervention) is outside the scope of this analysis. Note that in 3 of the 6 episodes reserves *rose*, and the 2022 drawdown includes substantial valuation losses |
 | **Reserve adequacy** | 10.9 months of import cover (well above 3-month minimum) |
-| **Paper alignment** | Results consistent with Aktuğ & Rezghi (2026): FXI is welfare-improving when combined with monetary policy |
+| **Paper alignment** | Results are broadly consistent with Aktuğ & Rezghi (2026). However, that paper models an *oil-exporting* economy where oil windfalls build net foreign assets and reduce the risk premium. For India — a large oil *importer* — the mechanism runs in the opposite direction: oil shocks drain FX, raise import costs, and typically weaken the rupee. The NEER and FEVD results should be interpreted in this context |
 
 ---
 
@@ -241,6 +253,9 @@ UGP_Data/
 │   ├── correlation_differences.csv
 │   ├── unit_root_tests.csv
 │   ├── integration_orders.csv
+│   ├── bounds_test_NEER.txt
+│   ├── bounds_test_USDINR.txt
+│   ├── johansen_cointegration.txt
 │   ├── ardl_results_NEER.txt
 │   ├── ardl_results_USDINR.txt
 │   ├── var_results.txt
