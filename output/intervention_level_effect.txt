@@ -3,8 +3,8 @@
 Dep. Variable:           D_LOG_USDINR   R-squared:                       0.222
 Model:                            OLS   Adj. R-squared:                  0.209
 Method:                 Least Squares   F-statistic:                     16.02
-Date:                Tue, 18 Aug 2026   Prob (F-statistic):           5.66e-14
-Time:                        15:50:03   Log-Likelihood:                 862.55
+Date:                Sat, 03 Oct 2026   Prob (F-statistic):           5.66e-14
+Time:                        15:11:46   Log-Likelihood:                 862.55
 No. Observations:                 302   AIC:                            -1713.
 Df Residuals:                     296   BIC:                            -1691.
 Df Model:                           5                                         

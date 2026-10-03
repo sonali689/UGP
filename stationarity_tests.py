@@ -7,6 +7,13 @@ Produces:
   - Johansen cointegration test results
 """
 
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import adfuller, kpss
@@ -101,7 +108,7 @@ def run_unit_root_tests(df):
     # Level variables: use regression='ct' (constant + trend) because most
     # macro levels (exchange rates, reserves, prices) exhibit deterministic trends.
     # Omitting the trend under H0 biases the ADF toward non-rejection of a unit root.
-    print("\n  ── Level Variables (ADF with constant + trend) ──")
+    print("\n  -- Level Variables (ADF with constant + trend) --")
     print(f"  {'Variable':<25s} {'ADF stat':>10s} {'p-value':>10s} {'ADF':>15s} {'KPSS stat':>10s} {'p-value':>10s} {'KPSS':>15s}")
     print("  " + "-" * 100)
 
@@ -116,7 +123,7 @@ def run_unit_root_tests(df):
               f"{kpss_r['KPSS_stat']:>10.4f} {kpss_r['KPSS_pvalue']:>10.4f} {kpss_r['KPSS_result']:>15s}")
 
     # First-difference variables: no trend needed (differencing removes linear trend)
-    print("\n  ── First-Difference Variables (ADF with constant only) ──")
+    print("\n  -- First-Difference Variables (ADF with constant only) --")
     print(f"  {'Variable':<25s} {'ADF stat':>10s} {'p-value':>10s} {'ADF':>15s} {'KPSS stat':>10s} {'p-value':>10s} {'KPSS':>15s}")
     print("  " + "-" * 100)
 
@@ -132,7 +139,7 @@ def run_unit_root_tests(df):
     
     # Determine integration order
     # Level ADF uses ct; diff ADF uses c (consistent with tests above)
-    print("\n  ── Integration Order Summary ──")
+    print("\n  -- Integration Order Summary --")
     integration_orders = []
     for col, label in level_vars.items():
         adf_level = adf_test(df_sample[col], label, regression='ct')
@@ -197,9 +204,9 @@ def johansen_test(df):
 
     for det_order in [0, 1]:
         det_label = 'Restricted Constant' if det_order == 0 else 'Unrestricted Constant'
-        print(f"\n  ── Johansen Test ({det_label}) ──")
+        print(f"\n  -- Johansen Test ({det_label}) --")
         johansen_lines.append(f"\n{'='*70}")
-        johansen_lines.append(f"Johansen Cointegration Test — {det_label}")
+        johansen_lines.append(f"Johansen Cointegration Test - {det_label}")
         johansen_lines.append(f"Variables: {', '.join(all_vars)}")
         johansen_lines.append(f"Observations: {len(data)}, k_ar_diff=2")
         johansen_lines.append('='*70)
@@ -208,7 +215,7 @@ def johansen_test(df):
             result = coint_johansen(data.values, det_order=det_order, k_ar_diff=2)
             n_vars = len(all_vars)
 
-            # ── Trace test ──
+            # Trace test
             header = f"\n  {'Hypothesis':<20s} {'Trace Stat':>12s} {'5% CV':>10s} {'Result':>15s}"
             print(header)
             print("  " + "-" * 60)
@@ -224,7 +231,7 @@ def johansen_test(df):
                 print(line)
                 johansen_lines.append(line)
 
-            # ── Max-Eigenvalue test ──
+            # Max-Eigenvalue test
             print(f"\n  {'Hypothesis':<20s} {'Max-Eigen':>12s} {'5% CV':>10s} {'Result':>15s}")
             print("  " + "-" * 60)
             johansen_lines.append("\nMax-Eigenvalue Test:")
@@ -242,8 +249,8 @@ def johansen_test(df):
             # Count cointegrating vectors
             n_coint_trace = sum(1 for i in range(n_vars) if result.lr1[i] > result.cvt[i, 1])
             n_coint_max   = sum(1 for i in range(n_vars) if result.lr2[i] > result.cvm[i, 1])
-            summary = (f"\n  → Cointegrating vectors (Trace):      {n_coint_trace}\n"
-                       f"  → Cointegrating vectors (Max-Eigen): {n_coint_max}")
+            summary = (f"\n  -> Cointegrating vectors (Trace):      {n_coint_trace}\n"
+                       f"  -> Cointegrating vectors (Max-Eigen): {n_coint_max}")
             print(summary)
             johansen_lines.append(summary)
 

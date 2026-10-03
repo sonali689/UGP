@@ -9,6 +9,13 @@ Produces:
   - Granger causality tests
 """
 
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -73,14 +80,14 @@ def run_ardl_model(df, dep_var='LOG_NEER', label='NEER'):
     try:
         sel = ardl_select_order(y, maxlag=6, exog=X, maxorder=4, ic='aic', trend='c')
         ar_order = max(sel.ar_lags) if sel.ar_lags else 1
-        dl_order = {col: max(sel.dl_lags.get(col, [0])) for col in exog_cols}
+        dl_order = {col: max(max(sel.dl_lags.get(col, [1])), 1) for col in exog_cols}
         print(f"  AR order: {ar_order}, DL orders: {dl_order}")
     except Exception as e:
         print(f"  Auto-selection failed ({e}), using default UECM(2,1,1,1,1,1)")
         ar_order = 2
         dl_order = {col: 1 for col in exog_cols}
 
-    # ── Estimate UECM (needed for bounds_test()) ──
+    # -- Estimate UECM (needed for bounds_test()) --
     # UECM is the Unrestricted Error Correction form of the ARDL model.
     # It gives identical coefficient estimates to ARDL but exposes the
     # bounds_test() method required for Pesaran, Shin & Smith (2001).
@@ -95,17 +102,18 @@ def run_ardl_model(df, dep_var='LOG_NEER', label='NEER'):
         with open(os.path.join(OUTPUT_DIR, f'ardl_results_{label}.txt'), 'w', encoding='utf-8') as f:
             f.write(uecm_result.summary().as_text())
 
-        # ── ARDL Bounds Test (Pesaran, Shin & Smith, 2001) ──
+        # -- ARDL Bounds Test (Pesaran, Shin & Smith, 2001) --
         # Case III: unrestricted constant, no trend (most common for macro levels)
         print("\n  === ARDL Bounds Test (Pesaran et al., 2001) ===")
         bounds = uecm_result.bounds_test(case=3)
         print(f"  F-statistic: {bounds.stat:.4f}")
         print(f"  {'Significance':<15s} {'I(0) Bound':>12s} {'I(1) Bound':>12s} {'Decision':>15s}")
         print("  " + "-" * 60)
-        for row in bounds.critical_values.itertuples():
-            sig = f"{row.Index}"
-            i0  = row._1
-            i1  = row._2
+        cv = bounds.crit_vals
+        for row in cv.itertuples():
+            sig = f"{100 - row.Index:.1f}%"
+            i0  = row.lower
+            i1  = row.upper
             decision = ('Cointegration'  if bounds.stat > i1 else
                         'Inconclusive'   if bounds.stat > i0 else
                         'No cointegration')
@@ -113,9 +121,10 @@ def run_ardl_model(df, dep_var='LOG_NEER', label='NEER'):
 
         # Save bounds test output
         with open(os.path.join(OUTPUT_DIR, f'bounds_test_{label}.txt'), 'w', encoding='utf-8') as f:
-            f.write(f"ARDL Bounds Test Results — {label}\n")
-            f.write(f"F-statistic: {bounds.stat:.4f}\n\n")
-            f.write(bounds.critical_values.to_string())
+            f.write(f"ARDL Bounds Test Results - {label}\n")
+            f.write(f"F-statistic: {bounds.stat:.4f}\n")
+            f.write(f"P-values: lower={bounds.p_values[0]:.4f}, upper={bounds.p_values[1]:.4f}\n\n")
+            f.write(bounds.crit_vals.to_string())
         print(f"  Saved: bounds_test_{label}.txt")
 
         # ── Diagnostics ──
@@ -135,10 +144,13 @@ def run_ardl_model(df, dep_var='LOG_NEER', label='NEER'):
         print(f"  Jarque-Bera (normality): stat={jb_stat:.4f}, p={jb_pval:.4f} "
               f"{'[PASS: Normal]' if jb_pval > 0.05 else '[FAIL: Non-normal (common in macro)]'}")
 
-        print(f"  R-squared:     {uecm_result.rsquared:.4f}")
-        print(f"  Adj R-squared: {uecm_result.rsquared_adj:.4f}")
+        if hasattr(uecm_result, 'rsquared'):
+            print(f"  R-squared:     {uecm_result.rsquared:.4f}")
+        if hasattr(uecm_result, 'rsquared_adj'):
+            print(f"  Adj R-squared: {uecm_result.rsquared_adj:.4f}")
         print(f"  AIC:           {uecm_result.aic:.4f}")
         print(f"  BIC:           {uecm_result.bic:.4f}")
+        print(f"  Log-Likelihood:{uecm_result.llf:.4f}")
 
         return uecm_result
 

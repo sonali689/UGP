@@ -1,0 +1,62 @@
+
+======================================================================
+Johansen Cointegration Test - Restricted Constant
+Variables: LOG_NEER, LOG_OIL, LOG_RESERVES, LOG_EPU, REPO_RATE, FED_RATE, CPI_YOY
+Observations: 303, k_ar_diff=2
+======================================================================
+
+Trace Test:
+  Hypothesis             Trace Stat      5% CV          Result
+  ------------------------------------------------------------
+  r <= 0                  151.6217   125.6185       Reject H0
+  r <= 1                   95.4682    95.7542  Fail to Reject
+  r <= 2                   58.8583    69.8189  Fail to Reject
+  r <= 3                   37.2570    47.8545  Fail to Reject
+  r <= 4                   21.2671    29.7961  Fail to Reject
+  r <= 5                    9.2896    15.4943  Fail to Reject
+  r <= 6                    0.2099     3.8415  Fail to Reject
+
+Max-Eigenvalue Test:
+  Hypothesis              Max-Eigen      5% CV          Result
+  ------------------------------------------------------------
+  r <= 0                   56.1535    46.2299       Reject H0
+  r <= 1                   36.6099    40.0763  Fail to Reject
+  r <= 2                   21.6013    33.8777  Fail to Reject
+  r <= 3                   15.9899    27.5858  Fail to Reject
+  r <= 4                   11.9775    21.1314  Fail to Reject
+  r <= 5                    9.0797    14.2639  Fail to Reject
+  r <= 6                    0.2099     3.8415  Fail to Reject
+
+  -> Cointegrating vectors (Trace):      1
+  -> Cointegrating vectors (Max-Eigen): 1
+
+======================================================================
+Johansen Cointegration Test - Unrestricted Constant
+Variables: LOG_NEER, LOG_OIL, LOG_RESERVES, LOG_EPU, REPO_RATE, FED_RATE, CPI_YOY
+Observations: 303, k_ar_diff=2
+======================================================================
+
+Trace Test:
+  Hypothesis             Trace Stat      5% CV          Result
+  ------------------------------------------------------------
+  r <= 0                  168.1572   139.2780       Reject H0
+  r <= 1                  105.5701   107.3429  Fail to Reject
+  r <= 2                   69.5642    79.3422  Fail to Reject
+  r <= 3                   41.6673    55.2459  Fail to Reject
+  r <= 4                   25.2995    35.0116  Fail to Reject
+  r <= 5                   13.4791    18.3985  Fail to Reject
+  r <= 6                    5.5960     3.8415       Reject H0
+
+Max-Eigenvalue Test:
+  Hypothesis              Max-Eigen      5% CV          Result
+  ------------------------------------------------------------
+  r <= 0                   62.5872    49.5875       Reject H0
+  r <= 1                   36.0059    43.4183  Fail to Reject
+  r <= 2                   27.8969    37.1646  Fail to Reject
+  r <= 3                   16.3678    30.8151  Fail to Reject
+  r <= 4                   11.8204    24.2522  Fail to Reject
+  r <= 5                    7.8831    17.1481  Fail to Reject
+  r <= 6                    5.5960     3.8415       Reject H0
+
+  -> Cointegrating vectors (Trace):      2
+  -> Cointegrating vectors (Max-Eigen): 2

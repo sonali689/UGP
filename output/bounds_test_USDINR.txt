@@ -1,0 +1,10 @@
+ARDL Bounds Test Results - USDINR
+F-statistic: 1.8216
+P-values: lower=0.1837, upper=0.6184
+
+               lower     upper
+percentile                    
+90.0        2.134368  3.231101
+95.0        2.462017  3.627196
+99.0        3.158590  4.450300
+99.9        4.072018  5.501857

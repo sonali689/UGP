@@ -8,6 +8,13 @@ Produces:
   - Granger causality: Reserves <-> Exchange Rate
 """
 
+import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 import pandas as pd
 import numpy as np
 import matplotlib

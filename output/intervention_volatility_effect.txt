@@ -1,30 +1,30 @@
                             OLS Regression Results                            
 ==============================================================================
-Dep. Variable:          ER_VOLATILITY   R-squared:                       0.308
-Model:                            OLS   Adj. R-squared:                  0.298
-Method:                 Least Squares   F-statistic:                     27.19
-Date:                Tue, 18 Aug 2026   Prob (F-statistic):           2.99e-19
-Time:                        15:50:03   Log-Likelihood:                -633.98
-No. Observations:                 303   AIC:                             1278.
-Df Residuals:                     298   BIC:                             1297.
+Dep. Variable:          ER_VOLATILITY   R-squared:                       0.019
+Model:                            OLS   Adj. R-squared:                  0.006
+Method:                 Least Squares   F-statistic:                    0.8974
+Date:                Sat, 03 Oct 2026   Prob (F-statistic):              0.466
+Time:                        15:11:46   Log-Likelihood:                -684.56
+No. Observations:                 302   AIC:                             1379.
+Df Residuals:                     297   BIC:                             1398.
 Df Model:                           4                                         
 Covariance Type:                  HC1                                         
 ==================================================================================
                      coef    std err          z      P>|z|      [0.025      0.975]
 ----------------------------------------------------------------------------------
-const             -4.3966      0.983     -4.474      0.000      -6.323      -2.470
-ABS_D_RESERVES    -5.1965      7.589     -0.685      0.493     -20.070       9.677
-OIL_VOLATILITY     0.0015      0.001      1.026      0.305      -0.001       0.004
-LOG_EPU            1.0725      0.217      4.953      0.000       0.648       1.497
-INT_DIFF           0.4876      0.051      9.574      0.000       0.388       0.587
+const              2.7019      0.286      9.459      0.000       2.142       3.262
+ABS_D_RESERVES   -10.9483     10.704     -1.023      0.306     -31.927      10.031
+OIL_VOLATILITY     0.0021      0.002      1.331      0.183      -0.001       0.005
+D_LOG_EPU         -0.2225      0.283     -0.786      0.432      -0.778       0.333
+D_INT_DIFF        -0.2166      0.644     -0.336      0.737      -1.478       1.045
 ==============================================================================
-Omnibus:                       30.604   Durbin-Watson:                   0.164
-Prob(Omnibus):                  0.000   Jarque-Bera (JB):               36.817
-Skew:                           0.803   Prob(JB):                     1.01e-08
-Kurtosis:                       3.579   Cond. No.                     9.00e+03
+Omnibus:                       73.254   Durbin-Watson:                   0.090
+Prob(Omnibus):                  0.000   Jarque-Bera (JB):              121.891
+Skew:                           1.432   Prob(JB):                     3.40e-27
+Kurtosis:                       4.217   Cond. No.                     8.98e+03
 ==============================================================================
 
 Notes:
 [1] Standard Errors are heteroscedasticity robust (HC1)
-[2] The condition number is large,  9e+03. This might indicate that there are
+[2] The condition number is large, 8.98e+03. This might indicate that there are
 strong multicollinearity or other numerical problems.
